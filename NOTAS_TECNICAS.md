@@ -10,6 +10,8 @@ Muestra si el indicador está DENTRO o FUERA, qué hacer en cada señal, el tama
   Icono: ₿ blanca en pixel art (cuadrícula de 32×32, ampliada sin suavizar) sobre fondo naranja `#F2AC3E` con sombra larga diagonal `#EE8833`, estilo retro; PNG a sangre (iOS aplica la máscara).
   Se generó pintando cada píxel de la cuadrícula en un canvas: la ₿ son rectángulos por filas y la sombra extruye cada píxel en diagonal abajo-izquierda.
   Si se cambia, subir `V` en `sw.js` y, en iOS, borrar y volver a añadir la app (iOS guarda el icono al instalarla).
+- Los iconos se enlazan con `?v=N` (en `index.html` y `manifest.json`): iOS y Android cachean el icono de la pantalla de inicio y, sin versión, siguen enseñando el antiguo.
+  `background_color` del manifiesto = naranja del icono (pantalla de arranque). Al cambiar un icono: subir `?v=` y `V` de `sw.js`.
 - `sw.js`: service worker, la app abre sin conexión. Estrategia *stale-while-revalidate* solo para el propio sitio;
   las llamadas a Binance no se cachean. **Al cambiar `index.html`, subir `V` en `sw.js`.**
 - Estilo copiado del sistema de SOLO GASTOS (tokens, tarjetas de cristal, dock con burbuja, hojas, animación de confirmación),
@@ -66,4 +68,5 @@ Una copia sin service worker se publica también como artefacto de claude.ai (al
 - Los artefactos de claude.ai bloquean `fetch` a otros hosts: por eso existen las vías SIGNUM e instantánea.
 - Formato `es-ES` de `toLocaleString` no agrupa miles en números de 4 cifras (5200): se usa `nf()` propio.
 - Un `localStorage` vacío o bloqueado no debe romper la app: `store` con respaldo en memoria.
+- Tras cambiar el icono, el móvil seguía mostrando el anterior (fondo oscuro): el icono de la pantalla de inicio se guarda al instalar y el navegador cachea el PNG. Solución: versionar la URL (`?v=N`), reinstalar la app y comprobar el PNG abriendo `/icon-180.png` en el navegador.
 - `gh repo create` por API fue denegado en la sesión de desarrollo: el repo se crea a mano en GitHub y luego se empuja.
