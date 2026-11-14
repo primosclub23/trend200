@@ -490,7 +490,7 @@ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const mem={};
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return mem[k]??null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){mem[k]=v}}};
 const KEY='trend200.v2',COOL=8;/* 7 días desde la ejecución de la venta hasta la vela de señal + 1 día hasta ejecutar la compra (igual que el Pine) */
-const D={pos:'',posDate:'',lastSell:'',hist:[],losses:0,capital:4500,price:'',sma50:'',sma200:'',now:'',startDate:'',startCap:'',startPrice:'',curVal:'',snaps:[],entry:'',margin:'',lev:2,manual:false,lastBackup:'',btcQty:'',usdcAmt:'',qAmt:'',sizeX:'',bigNow:'',qNow:'',tab:'buy',checks:{buy:[],sell:[]}};
+const D={pos:'',posDate:'',lastSell:'',hist:[],losses:0,capital:4500,price:'',sma50:'',sma200:'',now:'',startDate:'',startCap:'',startPrice:'',curVal:'',snaps:[],entry:'',margin:'',lev:2,manual:false,contribs:[],lastBackup:'',btcQty:'',usdcAmt:'',qAmt:'',sizeX:'',bigNow:'',qNow:'',tab:'buy',checks:{buy:[],sell:[]}};
 let S=JSON.parse(JSON.stringify(D));
 try{Object.assign(S,JSON.parse(store.get(KEY)||'{}'))}catch(e){}
 const save=()=>store.set(KEY,JSON.stringify(S));
@@ -589,6 +589,7 @@ home:()=>
  R(2,`<div class="sechead" style="margin-top:0"><h2>Mi cartera</h2><span>valor al precio actual</span></div>
   <div class="card pad"><div class="g2">${fld('BTC que tengo','btcQty','0,02')}${fld('USDC (Aave)','usdcAmt','0')}</div><div class="g2" style="margin-top:14px">${fld('Quantfury ($)','qAmt','0')}<div class="field"><label>Valor total</label><input id="cartTot" disabled value="—"></div></div></div>
   <p class="note" id="cartNote"></p>
+  <button class="cta card" data-act="addbtc" style="margin-top:10px">He sumado (o restado) BTC <span>＋</span></button>
   <button class="cta card" data-act="startnow" style="margin-top:10px">Empezar la comparación hoy con mi cartera <span>›</span></button>`,'section','sec')+
  R(3,`<div class="sechead"><h2>Estrategia vs solo BTC</h2><span id="pdd"></span></div>
   <div class="bal" style="margin-top:0"><div class="card bcard"><small>Tu estrategia</small><b id="pS">—</b></div><div class="card bcard"><small>Solo BTC</small><b id="pH">—</b></div></div>
@@ -674,14 +675,17 @@ function upd(){
   const PF=portfolio();if(PF.has&&Number.isFinite(PF.val))S.curVal=Math.round(PF.val);
   const sc=S.startCap,sp=S.startPrice,cv=S.curVal;
   const perf=num(sc)&&num(sp)&&num(cv)&&num(np);
-  const hodl=perf?sc/sp*np:NaN,d=perf?cv-hodl:NaN;
+  const cons=(S.contribs||[]).filter(c=>!S.startDate||c.d>=S.startDate);
+  const unitsAt=dt=>(perf?sc/sp:0)+cons.filter(c=>c.d<=dt).reduce((a,c)=>a+c.btc,0);
+  const invAt=dt=>(perf?sc:0)+cons.filter(c=>c.d<=dt).reduce((a,c)=>a+c.btc*c.p,0);
+  const hodl=perf?unitsAt('9999')*np:NaN,inv=perf?invAt('9999'):NaN,d=perf?cv-hodl:NaN;
 
   /* inicio */
   if(view==='home'){
     {const ct=$('#cartTot');if(ct)ct.value=PF.has&&Number.isFinite(PF.val)?usd(PF.val):'—';
      set('cartNote',PF.has&&num(S.btcQty)&&num(PF.P)?`${nf(+S.btcQty,4)} BTC × ${usd(PF.P)} = ${usd(+S.btcQty*PF.P)}${(+S.usdcAmt||+S.qAmt)?' + el resto de tu cartera':''}`:'Escribe tu BTC (por ejemplo 0,02) y, si tienes, tu USDC y tu saldo de Quantfury. Con eso el panel calcula solo tu valor actual.')}
     if(num(cv))countTo('hero-n',cv,v=>nf(v));else{set('hero-n','—')}
-    set('hStart',perf?pc(cv/sc-1):'—');set('hHodl',perf?pc(hodl/sc-1):'—');
+    set('hStart',perf?pc(cv/inv-1):'—');set('hHodl',perf?pc(hodl/inv-1):'—');
     const pl=$('#hPill');
     if(pl){if(perf){pl.style.display='';pl.className='pill '+(d>=0?'down':'up');pl.innerHTML=`<svg viewBox="0 0 24 24"><path d="${d>=0?'M12 19V5M5 12l7-7 7 7':'M12 5v14M19 12l-7 7-7-7'}"/></svg>${usd(Math.abs(d))} vs BTC`;pl.style.color=d>=0?'var(--mint)':'var(--up)'}else pl.style.display='none'}
     const sv=num(sc)&&num(cv)?[sc,...S.snaps.filter(s=>!S.startDate||s.d>S.startDate).map(s=>s.v),cv]:null;
@@ -712,10 +716,10 @@ function upd(){
       countTo('pS',cv,v=>usd(v));countTo('pH',hodl,v=>usd(v));
       countTo('pD',d,v=>(v>=0?'+':'−')+usd(Math.abs(v)));$('#pD').style.color=d>=0?'var(--mint)':'var(--up)';
       set('pDs',`${d>=0?'La estrategia va por delante':'Solo BTC va por delante'} · ${pc(cv/hodl-1)} frente a HODL`);
-      const ss=[{v:sc,p:sp},...S.snaps.filter(s=>!S.startDate||s.d>S.startDate),{v:cv,p:np}];
+      const ss=[{v:sc,p:sp,d:S.startDate||'0000'},...S.snaps.filter(s=>!S.startDate||s.d>S.startDate),{v:cv,p:np,d:'9999'}];
       const mdd=ar=>{let pk=0,m=0;ar.forEach(v=>{pk=Math.max(pk,v);m=Math.min(m,v/pk-1)});return m};
-      set('pdd',`caída máx. ${pc(mdd(ss.map(x=>x.v)))} / BTC ${pc(mdd(ss.map(x=>sc/sp*x.p)))}`);
-      if(ss.length>2){const sv2=ss.map(x=>x.v),hv=ss.map(x=>sc/sp*x.p);
+      set('pdd',`caída máx. ${pc(mdd(ss.map(x=>x.v/invAt(x.d)*sc)))} / BTC ${pc(mdd(ss.map(x=>unitsAt(x.d)*x.p/invAt(x.d)*sc)))}`);
+      if(ss.length>2){const sv2=ss.map(x=>x.v/invAt(x.d)*sc),hv=ss.map(x=>unitsAt(x.d)*x.p/invAt(x.d)*sc);
         if(once('cmp',[sv2,hv]))set('cmp',linesSVG([{v:hv,c:'h'},{v:sv2,c:'s'}],340,130,6));$('#cmpL').style.display=''}
       else{set('cmp','');$('#cmpL').style.display='none'}
     }else{['pS','pH','pD'].forEach(i=>{set(i,'—');const e=$('#'+i);if(e)e._v=NaN});set('pdd','');set('cmp','')}
@@ -807,6 +811,13 @@ function sheetAdd(){
    <button class="ghost" data-do="undo" style="margin-top:0;${S.hist.length?'':'opacity:.4'}">↺ Deshacer última acción</button>
    <button class="danger" data-do="reset">Reiniciar posición</button></div>${histHTML()}`);
 }
+function sheetAddBtc(){
+  const P=portfolio().P;
+  openSheet(`<h2>Sumar o restar BTC</h2><p class="lead">Así la comparación no cuenta este BTC como ganancia de la estrategia. Usa el signo − si retiras o vendes.</p>
+   <div class="field t0"><label>BTC que sumas</label><input id="abQty" inputmode="decimal" placeholder="0,01"></div>
+   <div class="g2"><div class="field"><label>Fecha</label><input type="date" id="abDate" value="${isoToday()}"></div><div class="field"><label>Precio de BTC ($)</label><input id="abPrice" inputmode="decimal" value="${num(P)?Math.round(P):''}"></div></div>
+   <button class="primary" data-do="addbtc">Añadir a mi cartera</button>`);
+}
 function sheetStart(){
   openSheet(`<h2>Datos de inicio</h2><p class="lead">Para compararte con haber comprado BTC el primer día.</p>
    <div class="g2"><div class="field t0">${fld('Fecha de inicio','startDate','','date').replace('<div class="field">','').replace(/<\/div>$/,'')}</div><div class="field t0">${fld('Capital inicial','startCap','$').replace('<div class="field">','').replace(/<\/div>$/,'')}</div></div>
@@ -865,6 +876,13 @@ function runDo(btn){
   else if(k==='wipe'){if(!sure(btn,'Toca otra vez: se borra todo'))return;S=JSON.parse(JSON.stringify(D));save();closeSheet();render();toast('Datos borrados')}
   else if(k==='sum'){const t=(+S.bigNow||0)+(+S.qNow||0);if(t>0){S.curVal=Math.round(t);save();const i=$('#sheet [data-k=curVal]');if(i)i.value=S.curVal;upd()}else toast('Rellena antes la calculadora (parte grande y Quantfury)')}
   else if(k==='close'){closeSheet()}
+  else if(k==='addbtc'){
+    const q=parse($('#abQty').value),pr=parse($('#abPrice').value),dd=$('#abDate').value||isoToday();
+    if(!q||!num(pr))return toast('Escribe la cantidad y el precio');
+    S.btcQty=Math.max(0,Math.round(((+S.btcQty||0)+q)*1e8)/1e8);
+    if(S.startDate&&dd>=S.startDate)S.contribs.push({d:dd,btc:q,p:pr});
+    save();closeSheet();syncInputs();upd();okAnim();toast((q>0?'Sumados ':'Restados ')+nf(Math.abs(q),4)+' BTC');
+  }
   else if(k==='export')sheetExport();
   else if(k==='import')sheetImport();
   else if(k==='copy')copyBackup();
@@ -884,7 +902,8 @@ document.addEventListener('click',e=>{
   else if(t.id==='btn-set')sheetSet();
   else if(t.id==='overlay')closeSheet();
   else if(t.dataset.do)runDo(t);
-  else if(t.dataset.act==='startnow'){const pf=portfolio();if(pf.has&&Number.isFinite(pf.val)){S.startDate=isoToday();S.startPrice=Math.round(pf.P);S.startCap=Math.round(pf.val);S.snaps=[];save();upd();okAnim();toast('Comparación empezada hoy: '+usd(pf.val)+' a '+usd(pf.P)+' por BTC')}else toast('Escribe antes tu BTC en Mi cartera')}
+  else if(t.dataset.act==='addbtc')sheetAddBtc();
+  else if(t.dataset.act==='startnow'){const pf=portfolio();if(pf.has&&Number.isFinite(pf.val)){S.startDate=isoToday();S.startPrice=Math.round(pf.P);S.startCap=Math.round(pf.val);S.snaps=[];S.contribs=[];save();upd();okAnim();toast('Comparación empezada hoy: '+usd(pf.val)+' a '+usd(pf.P)+' por BTC')}else toast('Escribe antes tu BTC en Mi cartera')}
   else if(t.dataset.act==='capfromport'){const pf=portfolio();if(pf.has&&Number.isFinite(pf.val)){S.capital=Math.round(pf.val);const i=$('[data-k=capital]');if(i)i.value=S.capital;upd();toast('Capital: '+usd(pf.val))}else toast('Escribe antes tu BTC en Inicio → Mi cartera')}
   else if(t.dataset.act==='startdata')sheetStart();
   else if(t.dataset.act==='snap'){if(addSnap()){upd();okAnim();toast('Foto guardada')}else toast('Falta el valor actual y el precio de BTC')}

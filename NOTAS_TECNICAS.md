@@ -44,7 +44,10 @@ Diferencia a tener en cuenta: SIGNUM usa el precio compuesto `INDEX:BTC/USD`; el
   registrar «Ya compré» sin comprar nada (alinea el panel). Cualquier compra/venta registrada pone `manual=false`.
 - **Historial con deshacer:** cada acción guarda el estado previo (`pos, posDate, lastSell, manual`); «Deshacer» lo restaura.
 - **Mi cartera:** BTC × precio + USDC + Quantfury = valor actual (`portfolio()`); sobrescribe `curVal` si hay datos.
-- **Comparación contra HODL:** `HODL = capital_inicial / precio_inicial × precio_actual`. Las «fotos» (snaps) dibujan las curvas y la caída máxima.
+- **Comparación contra HODL:** `HODL = unidades_BTC × precio_actual`, con `unidades = capital_inicial / precio_inicial + Σ aportaciones`. Las «fotos» (snaps) dibujan las curvas y la caída máxima.
+- **Aportaciones de BTC (`S.contribs`):** «He sumado (o restado) BTC» guarda `{fecha, btc, precio}`. Suman a las unidades de HODL y al capital invertido, y las curvas
+  y la caída máxima se normalizan por el capital invertido en cada fecha, de modo que meter o sacar BTC no cuenta como ganancia o pérdida de la estrategia.
+  Las aportaciones anteriores a la fecha de inicio se ignoran; «Empezar la comparación hoy» las borra.
 - **Exportar/importar:** JSON `{app:'trend200', v:2, data:S}`. Exportar muestra el texto (copiar) y ofrece descarga; importar pide confirmación
   y sustituye los datos. Los datos viven solo en el navegador: si se borra, se pierden salvo copia.
 
