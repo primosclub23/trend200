@@ -1,0 +1,7 @@
+.env
+*.log
+__pycache__/
+*.db
+node_modules/
+# copias de seguridad exportadas desde el panel (datos reales del usuario)
+trend200-copia-*.json

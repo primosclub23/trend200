@@ -1,0 +1,15 @@
+{
+  "name": "Trend 200 · Panel 80/20",
+  "short_name": "Trend 200",
+  "description": "Panel móvil de la estrategia Trend 200 de BTC con reparto 80/20",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#050607",
+  "theme_color": "#050607",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
