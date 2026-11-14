@@ -7,7 +7,8 @@ Muestra si el indicador está DENTRO o FUERA, qué hacer en cada señal, el tama
 ## 1. Arquitectura
 - `index.html` único y autocontenido: HTML + CSS + JS vanilla. Sin build, sin dependencias, sin CDN ni fuentes externas.
 - `manifest.json`, `icon-180/192/512.png`: instalable en la pantalla de inicio (iOS: Compartir → Añadir a pantalla de inicio).
-  Icono: ₿ naranja (`#F7931A`, inclinada 14° como el logo) sobre fondo oscuro con brillo, dibujada en SVG y exportada a PNG a sangre (iOS aplica la máscara).
+  Icono: ₿ blanca en pixel art (cuadrícula de 32×32, ampliada sin suavizar) sobre fondo naranja `#F2AC3E` con sombra larga diagonal `#EE8833`, estilo retro; PNG a sangre (iOS aplica la máscara).
+  Se generó pintando cada píxel de la cuadrícula en un canvas: la ₿ son rectángulos por filas y la sombra extruye cada píxel en diagonal abajo-izquierda.
   Si se cambia, subir `V` en `sw.js` y, en iOS, borrar y volver a añadir la app (iOS guarda el icono al instalarla).
 - `sw.js`: service worker, la app abre sin conexión. Estrategia *stale-while-revalidate* solo para el propio sitio;
   las llamadas a Binance no se cachean. **Al cambiar `index.html`, subir `V` en `sw.js`.**
