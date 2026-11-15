@@ -1,7 +1,7 @@
 // Service worker de Trend 200: la app abre sin conexión (stale-while-revalidate del propio sitio).
 // Las llamadas a Binance NO se cachean: pasan directas a la red.
 // Al cambiar index.html, sube V para forzar la limpieza de la caché antigua.
-const V = 't200-v8';
+const V = 't200-v9';
 const FILES = ['./', 'index.html', 'manifest.json', 'icon-180.png', 'icon-192.png', 'icon-512.png'];
 
 self.addEventListener('install', e => {

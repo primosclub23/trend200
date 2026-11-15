@@ -71,6 +71,9 @@ Fuente: `SATOSHI_Trend200_v2_Ciclo_Fib_rev.pine`. El motor (`t200core`, entre `/
 Diferencia a tener en cuenta: SIGNUM usa el precio compuesto `INDEX:BTC/USD`; el Pine usa el gráfico que tenga abierto el usuario.
 
 ## 4. Decisiones no obvias
+- **Tarjeta de señal (`.sig`)**, arriba en Inicio y en Señal: palabra enorme DENTRO (verde `#2BD97C`) / FUERA (rojo `#FF4D4D`) según el indicador (`S.ind.inV2`, o precio sobre las dos medias en modo manual),
+  con el cierre que activaría la siguiente señal, desde cuándo, el tamaño y si hay orden pendiente. Es la única zona donde se usan verde y rojo a pleno color; el resto de la app usa el naranja de BTC.
+  La tarjeta «qué hacer» debajo colorea la acción: abrir el largo y mantener en verde, cerrar en rojo, esperar en ámbar.
 - **Posición registrada ≠ estado del indicador.** `S.pos` es lo que el usuario tiene; el indicador es lo que debería tener. El panel compara ambos
   (`calc()`): «Toca comprar/vender» solo aparece si no coinciden.
 - **«BTC por tu cuenta» (`S.manual`):** el usuario mantiene BTC sin señal de compra. No se le avisa de vender; al saltar la compra se le pide

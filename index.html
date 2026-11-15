@@ -462,6 +462,29 @@ details.mdet[open] .bline,details.mdet[open] .mtot{animation:rise .4s var(--ease
 textarea{width:100%;min-height:130px;font-size:13px;line-height:1.4;color:var(--text);background:var(--surface2);border:1px solid transparent;border-radius:14px;padding:14px 16px;outline:0;resize:vertical;font-family:ui-monospace,Menlo,monospace;margin-bottom:6px}
 textarea:focus{border-color:rgba(247,147,26,.55)}
 input[type=file]{font-size:14px;padding:12px}
+/* tarjeta de señal: verde = dentro, rojo = fuera */
+.sig{--sc:#8e8e93;margin-top:10px;padding:22px 20px 22px;position:relative;overflow:hidden;
+ border:1px solid color-mix(in srgb,var(--sc) 60%,transparent);
+ background:linear-gradient(180deg,color-mix(in srgb,var(--sc) 22%,#0c0d0f),color-mix(in srgb,var(--sc) 7%,#0a0b0d));
+ box-shadow:0 0 0 1px color-mix(in srgb,var(--sc) 12%,transparent),0 24px 60px -24px color-mix(in srgb,var(--sc) 55%,transparent);
+ transition:border-color .5s,box-shadow .5s,background .5s}
+.sig::before{content:"";position:absolute;inset:-50% -20% auto -20%;height:110%;background:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--sc) 50%,transparent),transparent 65%);opacity:.65;animation:sigglow 3.6s ease-in-out infinite alternate;pointer-events:none}
+@keyframes sigglow{to{opacity:1;transform:scale(1.1)}}
+.sig>*{position:relative}
+.sighead{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.sighead .label{color:color-mix(in srgb,var(--sc) 55%,#fff)}
+.sigword{margin-top:10px;font-size:clamp(58px,20vw,92px);font-weight:800;letter-spacing:-.055em;line-height:.95;color:var(--sc);
+ text-shadow:0 0 44px color-mix(in srgb,var(--sc) 60%,transparent);animation:sigpulse 3.2s ease-in-out infinite;transition:color .5s}
+@keyframes sigpulse{50%{text-shadow:0 0 70px color-mix(in srgb,var(--sc) 85%,transparent)}}
+.sigsub{margin-top:10px;font-size:16px;font-weight:600;line-height:1.35;color:color-mix(in srgb,var(--sc) 55%,#fff)}
+.sigtrig{margin-top:14px;padding:12px 14px;border-radius:14px;background:rgba(0,0,0,.28);border:1px solid color-mix(in srgb,var(--sc) 30%,transparent);font-size:14.5px;color:#d8d8dc;line-height:1.4}
+.sigtrig:empty{display:none}
+.sigtrig b{color:#fff;font-variant-numeric:tabular-nums;white-space:nowrap}
+.sigtrig span{color:var(--dim)}
+.sigmeta{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px}
+.sigmeta:empty{display:none}
+.sigmeta span{font-size:12.5px;font-weight:600;padding:6px 12px;border-radius:99px;background:rgba(0,0,0,.28);border:1px solid color-mix(in srgb,var(--sc) 35%,transparent);color:#e6e6ea}
+.sigmeta span.hot{background:var(--sc);border-color:var(--sc);color:#06120a}
 </style>
 </head>
 <body class="intro">
@@ -592,8 +615,10 @@ const fld=(l,k,ph='',type='')=>`<div class="field"><label>${l}</label><input dat
 const topbar=()=>`<div class="top"><div class="eyebrow">Trend 200 · Quantfury x2</div><div class="topr"><button class="iconbtn" id="btn-set" aria-label="Ajustes"><svg viewBox="0 0 24 24"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg></button></div></div>`;
 const R=(d,h,tag='section',cls='')=>`<${tag} class="${cls} rise" style="--d:${d}">${h}</${tag}>`;
 
+const sigCard=()=>`<section class="card sig rise" style="--d:0"><div class="sighead"><span class="label">Señal del indicador</span><span class="label" id="sgDate"></span></div><div class="sigword" id="sgWord">—</div><div class="sigsub" id="sgSub"></div><div class="sigtrig" id="sgTrig"></div><div class="sigmeta" id="sgMeta"></div></section>`;
 const V={
 home:()=>
+ sigCard()+
  R(0,`<div class="eyebrow">Tu estrategia · valor actual</div>
   <div class="big"><span id="hero-n">—</span><span class="cur">$</span></div>
   <div class="stats"><div><small>Desde el inicio</small><b id="hStart">—</b></div><div><small>Solo BTC</small><b id="hHodl">—</b></div><span class="pill" id="hPill" style="display:none"></span></div>
@@ -615,6 +640,7 @@ home:()=>
 
 signal:()=>
  `<h1 class="ttl">Señal</h1><p class="sub2">Cierre diario de BTC frente a las medias 50 y 200.</p>`+
+ sigCard()+
  R(0,`<div class="sechead" style="margin-top:14px"><h2>Datos del indicador</h2><button class="link" id="refresh">↻ Actualizar</button></div>
   <div class="card pad"><div class="g2">${fld('Último cierre','price','$')}${fld('Media 50','sma50','$')}</div><div class="g2" style="margin-top:14px">${fld('Media 200','sma200','$')}${fld('Última venta','lastSell','','date')}</div><div class="g2" style="margin-top:14px">${fld('Tamaño recomendado (x)','sizeX','1')}<div class="field"><label>Volatilidad 30d</label><input id="volN" disabled value="—"></div></div></div>
   <p class="note" id="src"></p>`,'section','sec')+
@@ -695,6 +721,19 @@ function upd(){
   const invAt=dt=>(perf?sc:0)+cons.filter(c=>c.d<=dt).reduce((a,c)=>a+c.btc*c.p,0);
   const hodl=perf?unitsAt('9999')*np:NaN,inv=perf?invAt('9999'):NaN,d=perf?cv-hodl:NaN;
 
+  /* señal del indicador: verde = DENTRO, rojo = FUERA */
+  {const sc=$('.sig');if(sc){
+    const I=S.ind,inV=I?I.inV2:C.sg,has=inV!=null&&inV!==undefined,P0=S.price;
+    sc.style.setProperty('--sc',!has?'#8e8e93':inV?'#2BD97C':'#FF4D4D');
+    set('sgWord',!has?'SIN DATOS':inV?'DENTRO':'FUERA');
+    set('sgDate',I?'cierre del '+fdate(I.lastBar):'');
+    const wait=has&&!inV&&C.sg&&C.cd>0;
+    set('sgSub',!has?'Escribe el cierre y las medias en Señal.':inV?'Tendencia alcista: la estrategia está en largo.':wait?'Hay señal de compra, pero está en espera hasta el '+fdate(C.cdDate)+'.':'Sin tendencia alcista: la estrategia está en efectivo.');
+    const lv=I?I.trig:(C.has?(inV?Math.min(S.sma50,S.sma200):Math.max(S.sma50,S.sma200)):NaN);
+    set('sgTrig',has&&Number.isFinite(lv)&&num(P0)?`${inV?'Vende':'Compra'} si cierra ${inV?'por debajo de':'por encima de'} <b>${usd(lv)}</b> <span>(${pc(lv/P0-1)} desde el último cierre)</span>`:'');
+    set('sgMeta',[I&&I.since?`<span>Desde ${fdate(I.since)}</span>`:'',I&&I.size!=null?`<span>Tamaño ${nf(I.size,2)}x</span>`:'',I&&I.pending?'<span class="hot">Orden pendiente hoy</span>':''].join(''));
+  }}
+
   /* inicio */
   if(view==='home'){
     {const ct=$('#cartTot');if(ct)ct.value=Number.isFinite(PF.sv)?usd(PF.sv):'—';
@@ -710,10 +749,10 @@ function upd(){
     const T={
       NODATA:['#8e8e93','Sin datos','Faltan <em>datos</em>','Entra en Señal y escribe el último cierre y las medias 50 y 200 de TradingView.'],
       SETPOS:['#ffc457','Posición sin registrar','Registra <em>dónde estás</em>',`El indicador dice: ${(S.ind?S.ind.inV2:C.sg)?'dentro (tendencia alcista)':'fuera (sin tendencia alcista)'}. Toca + para registrar si tienes el largo abierto o estás en efectivo.`],
-      BUY:['#F7931A','Señal de compra','Toca <em>abrir</em> el largo x2','Cierre por encima de las dos medias y la espera ya pasó. Ejecútalo hoy'+(num(S.sizeX)?' con tamaño '+nf(Math.min(1,S.sizeX),2)+'x: usas ese porcentaje de tu capital como margen y abres a x2.':'.')],
-      SELL:['#ff8a7a','Señal de venta','Toca <em>cerrar</em> el largo','El cierre quedó por debajo de una media. Ciérralo hoy y devuelve el dinero a la cuenta de efectivo, sin dudar.'],
+      BUY:['#2BD97C','Señal de compra','Toca <em>abrir</em> el largo x2','Cierre por encima de las dos medias y la espera ya pasó. Ejecútalo hoy'+(num(S.sizeX)?' con tamaño '+nf(Math.min(1,S.sizeX),2)+'x: usas ese porcentaje de tu capital como margen y abres a x2.':'.')],
+      SELL:['#FF4D4D','Señal de venta','Toca <em>cerrar</em> el largo','El cierre quedó por debajo de una media. Ciérralo hoy y devuelve el dinero a la cuenta de efectivo, sin dudar.'],
       WAIT:['#ffc457','Señal en espera','Aún toca <em>esperar</em>',`Hay señal de compra, pero quedan ${C.cd} día${C.cd>1?'s':''} de espera tras la venta (hasta el ${fdate(C.cdDate)}).`],
-      HOLD_IN:['#F7931A','Dentro','Mantén tu <em>largo</em>','Tendencia alcista intacta. No hagas nada.'],
+      HOLD_IN:['#2BD97C','Dentro','Mantén tu <em>largo</em>','Tendencia alcista intacta. No hagas nada.'],
       HOLD_OUT:['#5aa9ff','Fuera','Cobra <em>intereses</em>','Sin tendencia alcista: tu dinero se queda en la cuenta de efectivo de Quantfury cobrando el APY ('+nf(+S.apy||0,1)+' %) hasta nueva señal.']
     }[C.act];
     const st=$('.st');
