@@ -1,7 +1,7 @@
 {
-  "name": "Trend 200 · Panel 80/20",
+  "name": "Trend 200 · Quantfury x2",
   "short_name": "Trend 200",
-  "description": "Panel móvil de la estrategia Trend 200 de BTC con reparto 80/20",
+  "description": "Panel móvil de la estrategia Trend 200 de BTC operada en Quantfury a x2",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

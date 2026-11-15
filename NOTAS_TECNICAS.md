@@ -1,8 +1,8 @@
-# Trend 200 · Panel 80/20 — notas técnicas
+# Trend 200 · Quantfury x2 — notas técnicas
 
-Panel móvil (PWA estática) para operar la estrategia **SATOSHI Trend 200 v2** de BTC con reparto 80/20.
-Muestra si el indicador está DENTRO o FUERA, qué hacer en cada señal, el tamaño por volatilidad, el reparto
-80/20 y la comparación con haber comprado BTC el primer día. Última actualización: 2026-11-14.
+Panel móvil (PWA estática) para operar la estrategia **SATOSHI Trend 200 v2** de BTC operada **solo en Quantfury a x2**.
+Muestra si el indicador está DENTRO o FUERA, qué hacer en cada señal, el tamaño por volatilidad, cuánto abrir a x2
+y la comparación con haber comprado BTC el primer día. Última actualización: 2026-11-15.
 
 ## 1. Arquitectura
 - `index.html` único y autocontenido: HTML + CSS + JS vanilla. Sin build, sin dependencias, sin CDN ni fuentes externas.
@@ -32,6 +32,16 @@ Fuente: `SATOSHI_Trend200_v2_Ciclo_Fib_rev.pine`. El motor (`t200core`, entre `/
   (despeja `c > (S_{n-1}+c)/n`).
 - La parte del Pine de ciclo (medidor techo/suelo) y Fibonacci **no** se replica: no afecta a señales ni órdenes.
 
+## 2 bis. Cambio de reglas (2026-11-15)
+- **Se elimina la pausa por pérdidas seguidas** (antes: 3 → pausa, 5 → apagar la parte pequeña): se opera siempre. Se quitó el contador y su estado.
+- **Todo se opera en Quantfury a x2**; desaparecen el reparto 80/20, Tangem, Aave/Base, SwapKit y el reequilibrado.
+  - Margen = `capital × tamaño` (tamaño = `min(1, 0,40/vol)` del Pine: 1x = todo el capital como margen, 0,5x = la mitad). Se abre `2 × margen`.
+    El resto del capital queda en la cuenta de efectivo. Exposición total = `2 × tamaño × capital`.
+  - Liquidación ≈ `entrada × (1 − 1/2)` = −50 % (sin comisiones ni márgenes; el stop-out real llega antes).
+  - **Interpretación a confirmar:** aquí «tamaño» fija el margen, no la exposición. Si se quisiera que el tamaño fuese la exposición (Pine con `levCap = 2`),
+    el margen sería `capital × tamaño / 2` y habría que subir el tope de 1x de `t200core`.
+  - «BTC propio» (spot fuera de Quantfury) sigue pudiendo mantenerse por cuenta del usuario (`S.manual`) hasta la primera señal de compra.
+
 ## 3. Fuentes de datos (en orden)
 1. **Binance** (`api.binance.com`, y `data-api.binance.vision` de respaldo): histórico diario BTCUSDT desde 2017-08 (paginado de 1000 en 1000).
    Funciona en GitHub Pages; recalcula el estado con el histórico completo.
@@ -48,7 +58,7 @@ Diferencia a tener en cuenta: SIGNUM usa el precio compuesto `INDEX:BTC/USD`; el
 - **«BTC por tu cuenta» (`S.manual`):** el usuario mantiene BTC sin señal de compra. No se le avisa de vender; al saltar la compra se le pide
   registrar «Ya compré» sin comprar nada (alinea el panel). Cualquier compra/venta registrada pone `manual=false`.
 - **Historial con deshacer:** cada acción guarda el estado previo (`pos, posDate, lastSell, manual`); «Deshacer» lo restaura.
-- **Mi cartera:** BTC × precio + USDC + Quantfury = valor actual (`portfolio()`); sobrescribe `curVal` si hay datos.
+- **Mi cartera:** BTC propio × precio + saldo de Quantfury = valor actual (`portfolio()`); sobrescribe `curVal` si hay datos.
 - **Comparación contra HODL:** `HODL = unidades_BTC × precio_actual`, con `unidades = capital_inicial / precio_inicial + Σ aportaciones`. Las «fotos» (snaps) dibujan las curvas y la caída máxima.
 - **Aportaciones de BTC (`S.contribs`):** «He sumado (o restado) BTC» guarda `{fecha, btc, precio}`. Suman a las unidades de HODL y al capital invertido, y las curvas
   y la caída máxima se normalizan por el capital invertido en cada fecha, de modo que meter o sacar BTC no cuenta como ganancia o pérdida de la estrategia.
@@ -69,4 +79,5 @@ Una copia sin service worker se publica también como artefacto de claude.ai (al
 - Formato `es-ES` de `toLocaleString` no agrupa miles en números de 4 cifras (5200): se usa `nf()` propio.
 - Un `localStorage` vacío o bloqueado no debe romper la app: `store` con respaldo en memoria.
 - Tras cambiar el icono, el móvil seguía mostrando el anterior (fondo oscuro): el icono de la pantalla de inicio se guarda al instalar y el navegador cachea el PNG. Solución: versionar la URL (`?v=N`), reinstalar la app y comprobar el PNG abriendo `/icon-180.png` en el navegador.
+- El panel conservaba textos del modelo anterior (USDC, Aave, 80/20) tras cambiar de estrategia: al cambiar reglas, buscar con `grep` todos los términos del modelo viejo antes de dar el cambio por hecho.
 - `gh repo create` por API fue denegado en la sesión de desarrollo: el repo se crea a mano en GitHub y luego se empuja.
