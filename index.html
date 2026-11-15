@@ -458,6 +458,7 @@ details.mdet[open] .bline,details.mdet[open] .mtot{animation:rise .4s var(--ease
 .dk{font-size:10.5px}
 .view .spark .line{animation:draw 1.4s var(--ease) both}.view .spark .area{animation:fade 1.2s .5s both}
 .g2>.field{margin-top:0}
+.g2{align-items:end}
 .rules ul{padding:0;list-style:disc}
 textarea{width:100%;min-height:130px;font-size:13px;line-height:1.4;color:var(--text);background:var(--surface2);border:1px solid transparent;border-radius:14px;padding:14px 16px;outline:0;resize:vertical;font-family:ui-monospace,Menlo,monospace;margin-bottom:6px}
 textarea:focus{border-color:rgba(247,147,26,.55)}
@@ -628,7 +629,7 @@ home:()=>
  R(2,`<div class="card bcard"><small>Estás en</small><b id="posNow">—</b><span class="hint" id="posSince" style="font-size:12px;color:var(--dim)"></span></div>
   <div class="card bcard"><small>Espera post-venta</small><b id="cdNow">—</b><span class="hint" id="cdSub" style="font-size:12px;color:var(--dim)"></span></div>`,'div','bal')+
  R(2,`<div class="sechead" style="margin-top:0"><h2>Mi saldo</h2><span>efectivo + largo</span></div>
-  <div class="card pad"><div class="g2">${fld('Efectivo USDC en Quantfury ($)','qAmt','1000')}<div class="field"><label>Valor total</label><input id="cartTot" disabled value="—"></div></div></div>
+  <div class="card pad"><div class="g2">${fld('Efectivo USDC ($)','qAmt','1000')}<div class="field"><label>Valor total</label><input id="cartTot" disabled value="—"></div></div></div>
   <p class="note" id="cartNote"></p>
   <button class="cta card" data-act="addfunds" style="margin-top:10px">He ingresado (o retirado) dinero <span>＋</span></button>
   <button class="cta card" data-act="startnow" style="margin-top:10px">Empezar la comparación hoy con mi saldo de Quantfury <span>›</span></button>`,'section','sec')+
