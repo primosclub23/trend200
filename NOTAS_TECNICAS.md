@@ -39,7 +39,8 @@ Fuente: `SATOSHI_Trend200_v2_Ciclo_Fib_rev.pine`. El motor (`t200core`, entre `/
     El resto del capital queda en la cuenta de efectivo. Exposición total = `2 × tamaño × capital`.
   - Liquidación ≈ `entrada × (1 − 1/2)` = −50 % (sin comisiones ni márgenes; el stop-out real llega antes).
   - Confirmado por el usuario: con 1.000 $ compra BTC por 2.000 $ (tamaño 1x = todo el capital como margen, abre el doble).
-  - «BTC propio» (spot fuera de Quantfury) sigue pudiendo mantenerse por cuenta del usuario (`S.manual`) hasta la primera señal de compra.
+  - **Solo se opera en Quantfury**: no hay BTC propio ni modo «mantener por mi cuenta» (eliminados). El estado inicial es USDC en efectivo esperando la señal:
+    al apuntar el efectivo sin posición registrada, la posición pasa sola a «Fuera» (`S.pos='OUT'`). Los datos antiguos con `manual`/`btcQty` se migran al cargar.
 
 ## 2 ter. Reglas de Quantfury usadas (fuente: help.quantfury.com, consultado 2026-11-15)
 - **Liquidación** (`6619637-liquidacion-del-saldo-de-la-cuenta-de-trading`): si las pérdidas (abiertas y cerradas) superan el saldo de la cuenta de trading, a los últimos precios
@@ -56,8 +57,7 @@ Fuente: `SATOSHI_Trend200_v2_Ciclo_Fib_rev.pine`. El motor (`t200core`, entre `/
 - «+ → Ya abrí el largo» pide BTC comprados, precio de entrada y saldo de la cuenta de trading (vacío = mitad de la posición, x2). Muestra al momento posición, apalancamiento,
   liquidación y poder de trading. Al confirmar: resta el saldo del efectivo (`qAmt`), y si no había comparación, **empieza sola** con `startCap = saldo + efectivo restante` al precio de entrada.
 - «+ → Ya cerré el largo» pide el saldo recibido (por defecto, el estimado con el precio actual), lo suma al efectivo (que empieza a cobrar APY) y guarda la operación en `S.trades`.
-- **Comparación frente a BTC spot:** `valor estrategia = efectivo (con APY) + saldo + BTC × (precio − entrada)`; `spot = capital inicial / precio inicial × precio`. El BTC propio queda fuera de la
-  comparación. Ingresos o retiradas de dinero se registran en `S.contribs` (BTC equivalente al precio del día) para que no cuenten como ganancia.
+- **Comparación frente a BTC spot:** `valor estrategia = efectivo (con APY) + saldo + BTC × (precio − entrada)`; `spot = capital inicial / precio inicial × precio`. Ingresos o retiradas de dinero se registran en `S.contribs` (BTC equivalente al precio del día) para que no cuenten como ganancia.
 - La instantánea de deshacer (`pick()`) guarda posición, largo, efectivo, comparación y operaciones.
 
 ## 3. Fuentes de datos (en orden)
@@ -76,7 +76,7 @@ Diferencia a tener en cuenta: SIGNUM usa el precio compuesto `INDEX:BTC/USD`; el
 - **«BTC por tu cuenta» (`S.manual`):** el usuario mantiene BTC sin señal de compra. No se le avisa de vender; al saltar la compra se le pide
   registrar «Ya compré» sin comprar nada (alinea el panel). Cualquier compra/venta registrada pone `manual=false`.
 - **Historial con deshacer:** cada acción guarda el estado previo (`pos, posDate, lastSell, manual`); «Deshacer» lo restaura.
-- **Mi cartera:** BTC propio × precio + saldo de Quantfury = valor actual (`portfolio()`); sobrescribe `curVal` si hay datos.
+- **Mi saldo:** efectivo (USDC) de Quantfury con APY + saldo y resultado del largo = valor de la estrategia (`stratVal()`); sobrescribe `curVal`.
 - **Comparación contra HODL:** `HODL = unidades_BTC × precio_actual`, con `unidades = capital_inicial / precio_inicial + Σ aportaciones`. Las «fotos» (snaps) dibujan las curvas y la caída máxima.
 - **Aportaciones de BTC (`S.contribs`):** «He sumado (o restado) BTC» guarda `{fecha, btc, precio}`. Suman a las unidades de HODL y al capital invertido, y las curvas
   y la caída máxima se normalizan por el capital invertido en cada fecha, de modo que meter o sacar BTC no cuenta como ganancia o pérdida de la estrategia.

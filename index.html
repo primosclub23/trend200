@@ -489,9 +489,12 @@ const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
 const mem={};
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return mem[k]??null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){mem[k]=v}}};
 const KEY='trend200.v2',COOL=8;/* 7 días desde la ejecución de la venta hasta la vela de señal + 1 día hasta ejecutar la compra (igual que el Pine) */
-const D={pos:'',posDate:'',lastSell:'',hist:[],capital:4500,price:'',sma50:'',sma200:'',now:'',startDate:'',startCap:'',startPrice:'',curVal:'',snaps:[],qBtc:'',entry:'',tbal:'',cashDate:'',apy:4.5,trades:[],manual:false,contribs:[],lastBackup:'',btcQty:'',qAmt:'',sizeX:'',tab:'buy',checks:{buy:[],sell:[]}};
+const D={pos:'',posDate:'',lastSell:'',hist:[],capital:4500,price:'',sma50:'',sma200:'',now:'',startDate:'',startCap:'',startPrice:'',curVal:'',snaps:[],qBtc:'',entry:'',tbal:'',cashDate:'',apy:4.5,trades:[],contribs:[],lastBackup:'',qAmt:'',sizeX:'',tab:'buy',checks:{buy:[],sell:[]}};
 let S=JSON.parse(JSON.stringify(D));
 try{Object.assign(S,JSON.parse(store.get(KEY)||'{}'))}catch(e){}
+/* migración: se elimina el BTC propio y el modo «mantener por mi cuenta» */
+if(S.manual&&S.pos==='IN'&&!(+S.qBtc>0)){S.pos='';S.posDate=''}
+delete S.manual;delete S.btcQty;S.hist=(S.hist||[]).filter(h=>h.t!=='hold');
 const save=()=>store.set(KEY,JSON.stringify(S));
 const num=v=>typeof v==='number'&&Number.isFinite(v)&&v>0;
 const parse=v=>{const n=parseFloat(String(v).replace(',','.'));return Number.isFinite(n)?n:''};
@@ -517,7 +520,7 @@ function countTo(id,to,fmt){
 const sig={};const once=(k,v)=>{const j=JSON.stringify(v);if(sig[k]===j)return false;sig[k]=j;return true};
 
 /* ============ lógica ============ */
-const SNAPK=['pos','posDate','lastSell','manual','qBtc','entry','tbal','qAmt','cashDate','startDate','startPrice','startCap','curVal','trades','contribs','snaps'];
+const SNAPK=['pos','posDate','lastSell','qBtc','entry','tbal','qAmt','cashDate','startDate','startPrice','startCap','curVal','trades','contribs','snaps'];
 const pick=()=>JSON.parse(JSON.stringify(SNAPK.reduce((o,k)=>(o[k]=S[k],o),{})));
 /* Tablas de poder de trading de Quantfury: [poder de trading, saldo mínimo de la cuenta de trading] */
 const TIERS=[[1000,50],[2000,100],[6000,300],[10000,500],[20000,1000],[40000,2000],[100000,5000],[200000,10000],[300000,15000],[400000,20000],[500000,25000],[1000000,50000]];
@@ -537,8 +540,8 @@ function stratVal(){
   return cash+(L?L.eq:0);
 }
 function portfolio(){
-  const P=num(S.now)?S.now:S.price,b=+S.btcQty||0,sv=stratVal(),has=b>0||Number.isFinite(sv);
-  return{P,has,sv,val:has&&num(P)?b*P+(Number.isFinite(sv)?sv:0):NaN};
+  const P=num(S.now)?S.now:S.price,sv=stratVal();
+  return{P,has:Number.isFinite(sv),sv,val:sv};
 }
 function calc(){
   const I=S.ind,p=S.price,a=S.sma50,b=S.sma200,has=num(p)&&num(a)&&num(b),sg=has?(p>a&&p>b):null;
@@ -547,7 +550,6 @@ function calc(){
   let act;
   if(!has)act='NODATA';
   else if(!S.pos)act='SETPOS';
-  else if(S.pos==='IN'&&S.manual)act=(I?I.inV2:sg)?'BUY':'HOLD_MANUAL';
   else if(I){
     if(S.pos==='IN'&&!I.inV2)act='SELL';
     else if(S.pos==='OUT'&&I.inV2)act='BUY';
@@ -561,15 +563,11 @@ function calc(){
 }
 function doAct(type,date,fn){
   S.hist.push({t:type,d:date,prev:pick()});
-  S.pos=type==='buy'?'IN':'OUT';S.posDate=date;S.manual=false;if(type==='sell')S.lastSell=date;
+  S.pos=type==='buy'?'IN':'OUT';S.posDate=date;if(type==='sell')S.lastSell=date;
   S.checks={buy:[],sell:[]};S.tab=type==='buy'?'sell':'buy';if(fn)fn();save();
 }
 function undo(){const h=S.hist.pop();if(!h)return false;Object.assign(S,h.prev);S.checks={buy:[],sell:[]};save();return true}
-function holdManual(date){
-  S.hist.push({t:'hold',d:date,prev:pick()});
-  S.pos='IN';S.posDate=date;S.manual=true;S.checks={buy:[],sell:[]};save();
-}
-function resetPos(){S.pos='';S.posDate='';S.lastSell='';S.manual=false;S.qBtc='';S.entry='';S.tbal='';S.hist=[];S.checks={buy:[],sell:[]};save()}
+function resetPos(){S.pos='';S.posDate='';S.lastSell='';S.qBtc='';S.entry='';S.tbal='';S.hist=[];S.checks={buy:[],sell:[]};save()}
 function addSnap(){
   const v=S.curVal,p=num(S.now)?S.now:S.price;if(!num(v)||!num(p))return false;
   const d=isoToday();S.snaps=S.snaps.filter(s=>s.d!==d);S.snaps.push({d,v,p});S.snaps.sort((a,b)=>a.d<b.d?-1:1);save();return true;
@@ -604,8 +602,8 @@ home:()=>
  R(1,`<div class="sbadge" id="stBadge"><i></i><span>—</span></div><h3 id="stTitle">—</h3><p id="stSub"></p><p class="note" id="indLine" style="margin:12px 0 0"></p>`,'section','card st')+
  R(2,`<div class="card bcard"><small>Estás en</small><b id="posNow">—</b><span class="hint" id="posSince" style="font-size:12px;color:var(--dim)"></span></div>
   <div class="card bcard"><small>Espera post-venta</small><b id="cdNow">—</b><span class="hint" id="cdSub" style="font-size:12px;color:var(--dim)"></span></div>`,'div','bal')+
- R(2,`<div class="sechead" style="margin-top:0"><h2>Mi cartera</h2><span>valor al precio actual</span></div>
-  <div class="card pad"><div class="g2">${fld('BTC propio','btcQty','0,02')}${fld('Efectivo Quantfury ($)','qAmt','1000')}</div><div class="g2" style="margin-top:14px"><div class="field"><label>Valor estrategia</label><input id="cartStrat" disabled value="—"></div><div class="field"><label>Valor total</label><input id="cartTot" disabled value="—"></div></div></div>
+ R(2,`<div class="sechead" style="margin-top:0"><h2>Mi saldo</h2><span>efectivo + largo</span></div>
+  <div class="card pad"><div class="g2">${fld('Efectivo USDC en Quantfury ($)','qAmt','1000')}<div class="field"><label>Valor total</label><input id="cartTot" disabled value="—"></div></div></div>
   <p class="note" id="cartNote"></p>
   <button class="cta card" data-act="addfunds" style="margin-top:10px">He ingresado (o retirado) dinero <span>＋</span></button>
   <button class="cta card" data-act="startnow" style="margin-top:10px">Empezar la comparación hoy con mi saldo de Quantfury <span>›</span></button>`,'section','sec')+
@@ -699,9 +697,9 @@ function upd(){
 
   /* inicio */
   if(view==='home'){
-    {const ct=$('#cartTot'),cs=$('#cartStrat');if(ct)ct.value=PF.has&&Number.isFinite(PF.val)?usd(PF.val):'—';if(cs)cs.value=Number.isFinite(PF.sv)?usd(PF.sv):'—';
+    {const ct=$('#cartTot');if(ct)ct.value=Number.isFinite(PF.sv)?usd(PF.sv):'—';
      const P0=PF.P,L=num(P0)?longInfo(P0):null,cash=cashNow(),ip=+S.qAmt>0?cash-(+S.qAmt):0;
-     set('cartNote',[L?`Largo abierto: saldo ${usd(L.eq)} (${L.pnl>=0?'+':'−'}${usd(Math.abs(L.pnl))}).`:'',cash>0?`Efectivo con APY ${nf(+S.apy||0,1)} %: ${usd(cash)}${ip>0.005?' (≈ +'+usd(ip,2)+' de intereses desde '+fdate(S.cashDate)+')':''}.`:'',num(S.btcQty)&&num(P0)?`BTC propio: ${nf(+S.btcQty,4)} × ${usd(P0)} = ${usd(+S.btcQty*P0)}.`:''].filter(Boolean).join(' ')||'Escribe tu efectivo en Quantfury (y tu BTC propio, si lo tienes). El panel calcula solo el valor de tu estrategia.')}
+     set('cartNote',[L?`Largo abierto: saldo ${usd(L.eq)} (${L.pnl>=0?'+':'−'}${usd(Math.abs(L.pnl))}).`:'',cash>0?`Efectivo con APY ${nf(+S.apy||0,1)} %: ${usd(cash)}${ip>0.005?' (≈ +'+usd(ip,2)+' de intereses desde '+fdate(S.cashDate)+')':''}.`:''].filter(Boolean).join(' ')||'Escribe el saldo en USDC que dejas en la cuenta en efectivo de Quantfury mientras esperas la señal. El panel calcula solo el valor de tu estrategia.')}
     if(num(cv))countTo('hero-n',cv,v=>nf(v));else{set('hero-n','—')}
     set('hStart',perf?pc(cv/inv-1):'—');set('hHodl',perf?pc(hodl/inv-1):'—');
     const pl=$('#hPill');
@@ -716,16 +714,15 @@ function upd(){
       SELL:['#ff8a7a','Señal de venta','Toca <em>cerrar</em> el largo','El cierre quedó por debajo de una media. Ciérralo hoy y devuelve el dinero a la cuenta de efectivo, sin dudar.'],
       WAIT:['#ffc457','Señal en espera','Aún toca <em>esperar</em>',`Hay señal de compra, pero quedan ${C.cd} día${C.cd>1?'s':''} de espera tras la venta (hasta el ${fdate(C.cdDate)}).`],
       HOLD_IN:['#F7931A','Dentro','Mantén tu <em>largo</em>','Tendencia alcista intacta. No hagas nada.'],
-      HOLD_OUT:['#5aa9ff','Fuera','Cobra <em>intereses</em>','Sin tendencia alcista: tu dinero se queda en la cuenta de efectivo de Quantfury cobrando el APY ('+nf(+S.apy||0,1)+' %) hasta nueva señal.'],
-      HOLD_MANUAL:['#ffc457','BTC por tu cuenta','Mantienes <em>tu BTC</em>','El indicador está fuera y mantienes tu BTC por tu cuenta, fuera de Quantfury. No hagas nada: cuando salte la señal de compra, abre el largo x2 en Quantfury y pulsa «Ya abrí el largo».']
+      HOLD_OUT:['#5aa9ff','Fuera','Cobra <em>intereses</em>','Sin tendencia alcista: tu dinero se queda en la cuenta de efectivo de Quantfury cobrando el APY ('+nf(+S.apy||0,1)+' %) hasta nueva señal.']
     }[C.act];
     const st=$('.st');
     if(st){st.style.setProperty('--c',T[0]);
       if(once('st',T)){['#stTitle','#stSub'].forEach(i=>{const e=$(i);e.classList.remove('swap');void e.offsetWidth;e.classList.add('swap')})}
       $('#stBadge').innerHTML=`<i></i><span>${T[1]}</span>`;$('#stTitle').innerHTML=T[2];$('#stSub').innerHTML=T[3]}
     {const I=S.ind;set('indLine',I?`Indicador: <b style="color:var(--text)">${I.inV2?'DENTRO':'FUERA'}</b>${I.since?' desde '+fdate(I.since):''}${I.pending?' · orden pendiente hoy':''}${I.inV2&&I.entry?' · entrada ≈ '+usd(I.entry):''}${I.size!=null?' · tamaño '+nf(I.size,2)+'x':''}`:'')}
-    set('posNow',S.pos==='IN'?(S.manual?'BTC propio':'<span style="color:var(--mint)">Largo x2</span>'):S.pos==='OUT'?'Efectivo':'—');
-    set('posSince',S.manual?'fuera de estrategia':S.posDate?'desde '+fdate(S.posDate):'sin registrar');
+    set('posNow',S.pos==='IN'?'<span style="color:var(--mint)">Largo x2</span>':S.pos==='OUT'?'USDC':'—');
+    set('posSince',S.posDate?'desde '+fdate(S.posDate):'sin registrar');
     set('cdNow',C.cdDate?(C.cd>0?C.cd+' días':'Libre'):'—');
     set('cdSub',S.lastSell?(C.cd>0?'compra el '+fdate(C.cdDate):'venta '+fdate(C.ls)):'sin venta registrada');
     /* vs HODL */
@@ -819,14 +816,13 @@ function toast(msg,label,fn){
   if(label){const b=document.createElement('button');b.textContent=label;b.onclick=()=>{t.classList.remove('show');fn()};t.append(b)}
   t.classList.add('show');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('show'),label?5500:2400);
 }
-const histHTML=()=>S.hist.length?`<div class="field"><label>Últimas operaciones</label><div class="hist">${S.hist.slice(-4).reverse().map(h=>`<div><b>${h.t==='buy'?'Largo abierto':h.t==='hold'?'BTC por tu cuenta':'Largo cerrado'}</b><span>${fdate(h.d)}</span></div>`).join('')}</div></div>`:'';
+const histHTML=()=>S.hist.length?`<div class="field"><label>Últimas operaciones</label><div class="hist">${S.hist.slice(-4).reverse().map(h=>`<div><b>${h.t==='buy'?'Largo abierto':'Largo cerrado'}</b><span>${fdate(h.d)}</span></div>`).join('')}</div></div>`:'';
 function sheetAdd(){
   const rec={BUY:'buy',SELL:'sell'}[calc().act];
   openSheet(`<h2>Registrar</h2><p class="lead">Indica qué has hecho. Se anota en la fecha que elijas.</p>
    <div class="field t0"><label>Fecha de la operación</label><input type="date" id="addDate" value="${isoToday()}"></div>
    <button class="hbtn buy" data-do="buy"><div><b>Ya abrí el largo x2</b><small>${rec==='buy'?'Es lo que marca la señal':'Pasas a estar dentro'}</small></div><span>›</span></button>
    <button class="hbtn sell" data-do="sell"><div><b>Ya cerré el largo</b><small>${rec==='sell'?'Es lo que marca la señal · ':''}Empiezan los 7 días de espera</small></div><span>›</span></button>
-   <button class="hbtn" data-do="hold"><div><b>Mantengo mi BTC (fuera de Quantfury)</b><small>Sin señal de compra: lo guardas por tu cuenta hasta la próxima señal</small></div><span>›</span></button>
    <button class="hbtn" data-do="snap"><div><b>Guardar foto de hoy</b><small>Añade un punto a la curva</small></div><span>＋</span></button>
    <div class="field"><label>Corregir un error</label>
    <button class="ghost" data-do="undo" style="margin-top:0;${S.hist.length?'':'opacity:.4'}">↺ Deshacer última acción</button>
@@ -864,7 +860,7 @@ function sheetAddFunds(){
 function sheetStart(){
   openSheet(`<h2>Datos de inicio</h2><p class="lead">Para compararte con haber comprado BTC el primer día.</p>
    <div class="g2"><div class="field t0">${fld('Fecha de inicio','startDate','','date').replace('<div class="field">','').replace(/<\/div>$/,'')}</div><div class="field t0">${fld('Capital inicial','startCap','$').replace('<div class="field">','').replace(/<\/div>$/,'')}</div></div>
-   ${fld('Precio de BTC ese día','startPrice','$')}${fld('Valor actual total (BTC propio + Quantfury)','curVal','$')}
+   ${fld('Precio de BTC ese día','startPrice','$')}${fld('Valor actual de la estrategia (se calcula solo)','curVal','$')}
    <button class="primary" data-do="close">Listo</button>`);
 }
 function sheetSet(){
@@ -911,8 +907,7 @@ document.addEventListener('change',e=>{if(e.target.id==='bkFile'){const f=e.targ
 function sure(btn,txt){if(btn.dataset.sure)return true;btn.dataset.sure=1;btn._t=btn.textContent;btn.textContent=txt;setTimeout(()=>{if(btn.isConnected){delete btn.dataset.sure;btn.textContent=btn._t}},3500);return false}
 function runDo(btn){
   const k=btn.dataset.do,dt=($('#addDate')||{}).value||isoToday();
-  if(k==='hold'){holdManual(dt);closeSheet();render();okAnim();toast('Anotado: mantienes tu BTC por tu cuenta','Deshacer',()=>{undo();render()})}
-  else if(k==='buy')sheetOpenLong(dt);
+  if(k==='buy')sheetOpenLong(dt);
   else if(k==='sell')sheetCloseLong(dt);
   else if(k==='confirmopen'){
     const Q=parse($('#olQty').value),E=parse($('#olPrice').value),Bv=parse($('#olBal').value),dd=$('#olDate').value||isoToday();
@@ -959,7 +954,7 @@ function runDo(btn){
 /* ============ eventos ============ */
 document.addEventListener('input',e=>{
   const el=e.target.closest('[data-k]');if(!el)return;const k=el.dataset.k;
-  S[k]=el.type==='date'?el.value:parse(el.value);if(k==='qAmt')S.cashDate=isoToday();upd();
+  S[k]=el.type==='date'?el.value:parse(el.value);if(k==='qAmt'){S.cashDate=isoToday();if(!S.pos&&num(S.qAmt)){S.pos='OUT';S.posDate=isoToday()}}upd();
 });
 document.addEventListener('input',e=>{if(e.target.closest('[data-ol]'))updOl()});
 document.addEventListener('click',e=>{
