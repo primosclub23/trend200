@@ -38,9 +38,27 @@ Fuente: `SATOSHI_Trend200_v2_Ciclo_Fib_rev.pine`. El motor (`t200core`, entre `/
   - Margen = `capital × tamaño` (tamaño = `min(1, 0,40/vol)` del Pine: 1x = todo el capital como margen, 0,5x = la mitad). Se abre `2 × margen`.
     El resto del capital queda en la cuenta de efectivo. Exposición total = `2 × tamaño × capital`.
   - Liquidación ≈ `entrada × (1 − 1/2)` = −50 % (sin comisiones ni márgenes; el stop-out real llega antes).
-  - **Interpretación a confirmar:** aquí «tamaño» fija el margen, no la exposición. Si se quisiera que el tamaño fuese la exposición (Pine con `levCap = 2`),
-    el margen sería `capital × tamaño / 2` y habría que subir el tope de 1x de `t200core`.
+  - Confirmado por el usuario: con 1.000 $ compra BTC por 2.000 $ (tamaño 1x = todo el capital como margen, abre el doble).
   - «BTC propio» (spot fuera de Quantfury) sigue pudiendo mantenerse por cuenta del usuario (`S.manual`) hasta la primera señal de compra.
+
+## 2 ter. Reglas de Quantfury usadas (fuente: help.quantfury.com, consultado 2026-11-15)
+- **Liquidación** (`6619637-liquidacion-del-saldo-de-la-cuenta-de-trading`): si las pérdidas (abiertas y cerradas) superan el saldo de la cuenta de trading, a los últimos precios
+  spot, se liquida; no se puede perder más que ese saldo. Para un largo: `liquidación = entrada − saldo / BTC` (`longInfo()`). Con x2 exacto = −50 %.
+  Apalancamiento real = posición / (saldo + resultado): sube cuando BTC baja.
+- **Poder de trading** (`6619568-que-es-el-poder-de-trading`): importe máximo en USD asignable a posiciones; fijo, no cambia con ganancias o pérdidas. Tablas (poder → saldo mínimo, siempre 5 %):
+  1.000→50, 2.000→100, 6.000→300, 10.000→500, 20.000→1.000, 40.000→2.000, 100.000→5.000, 200.000→10.000, 300.000→15.000, 400.000→20.000, 500.000→25.000, 1.000.000→50.000 (`TIERS`, `tierFor()`).
+  Bajar el saldo del mínimo solo genera una notificación de riesgo (no liquida). No hay comisiones, ni tarifas de préstamo, ni límite de tiempo de la posición.
+- **APY de la cuenta en efectivo** (`8154900-...`): 4,5 % (Fed + 50 pb, a 16-09-2026), pagado a diario sobre el saldo más bajo del día (UTC), mínimo 50 $, máximo 100.000 $; solo en la
+  cuenta en efectivo (no en la de trading). El panel lo modela como `(1 + APY/365)^días` sobre `S.qAmt` desde `S.cashDate` (`cashNow()`); el APY se edita en Ajustes.
+- Las pérdidas y ganancias de cripto se calculan con el precio del libro de órdenes para el tamaño de la orden: el cierre real puede diferir algo del precio spot.
+
+## 2 quater. Flujo de datos del largo (2026-11-15)
+- «+ → Ya abrí el largo» pide BTC comprados, precio de entrada y saldo de la cuenta de trading (vacío = mitad de la posición, x2). Muestra al momento posición, apalancamiento,
+  liquidación y poder de trading. Al confirmar: resta el saldo del efectivo (`qAmt`), y si no había comparación, **empieza sola** con `startCap = saldo + efectivo restante` al precio de entrada.
+- «+ → Ya cerré el largo» pide el saldo recibido (por defecto, el estimado con el precio actual), lo suma al efectivo (que empieza a cobrar APY) y guarda la operación en `S.trades`.
+- **Comparación frente a BTC spot:** `valor estrategia = efectivo (con APY) + saldo + BTC × (precio − entrada)`; `spot = capital inicial / precio inicial × precio`. El BTC propio queda fuera de la
+  comparación. Ingresos o retiradas de dinero se registran en `S.contribs` (BTC equivalente al precio del día) para que no cuenten como ganancia.
+- La instantánea de deshacer (`pick()`) guarda posición, largo, efectivo, comparación y operaciones.
 
 ## 3. Fuentes de datos (en orden)
 1. **Binance** (`api.binance.com`, y `data-api.binance.vision` de respaldo): histórico diario BTCUSDT desde 2017-08 (paginado de 1000 en 1000).
@@ -79,5 +97,6 @@ Una copia sin service worker se publica también como artefacto de claude.ai (al
 - Formato `es-ES` de `toLocaleString` no agrupa miles en números de 4 cifras (5200): se usa `nf()` propio.
 - Un `localStorage` vacío o bloqueado no debe romper la app: `store` con respaldo en memoria.
 - Tras cambiar el icono, el móvil seguía mostrando el anterior (fondo oscuro): el icono de la pantalla de inicio se guarda al instalar y el navegador cachea el PNG. Solución: versionar la URL (`?v=N`), reinstalar la app y comprobar el PNG abriendo `/icon-180.png` en el navegador.
+- `grep` de `S.margin` antes de dar por hecho que un campo se había retirado: el modelo del largo pasó de «margen» a «saldo de la cuenta de trading» (`tbal`).
 - El panel conservaba textos del modelo anterior (USDC, Aave, 80/20) tras cambiar de estrategia: al cambiar reglas, buscar con `grep` todos los términos del modelo viejo antes de dar el cambio por hecho.
 - `gh repo create` por API fue denegado en la sesión de desarrollo: el repo se crea a mano en GitHub y luego se empuja.
